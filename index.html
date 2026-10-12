@@ -19,6 +19,14 @@
     --pine-soft: #E4EEE9;
     --rust: #C1622D;
     --rust-soft: #F6E6DA;
+    --blue: #3B6EA8;
+    --blue-soft: #E1E9F2;
+    --plum: #8B5A8F;
+    --plum-soft: #F0E3EF;
+    --ochre: #A67C2E;
+    --ochre-soft: #F3ECDA;
+    --slate: #5B6670;
+    --slate-soft: #E6E9EB;
     --radius: 3px;
     box-sizing: border-box;
     padding-top: env(safe-area-inset-top, 0px);
@@ -29,12 +37,16 @@
       --bg: #14171B; --surface: #1C201D; --surface-2: #262B26;
       --ink: #ECEEE8; --ink-soft: #9CA69C; --line: #333A33;
       --pine: #6FA98F; --pine-soft: #223029; --rust: #DE8757; --rust-soft: #332821;
+      --blue: #7FA8D9; --blue-soft: #1E2A35; --plum: #C98FCB; --plum-soft: #2E2030;
+      --ochre: #D9A94A; --ochre-soft: #332A18; --slate: #9FB0BD; --slate-soft: #242B30;
     }
   }
   :root[data-theme="dark"] {
     --bg: #14171B; --surface: #1C201D; --surface-2: #262B26;
     --ink: #ECEEE8; --ink-soft: #9CA69C; --line: #333A33;
     --pine: #6FA98F; --pine-soft: #223029; --rust: #DE8757; --rust-soft: #332821;
+    --blue: #7FA8D9; --blue-soft: #1E2A35; --plum: #C98FCB; --plum-soft: #2E2030;
+    --ochre: #D9A94A; --ochre-soft: #332A18; --slate: #9FB0BD; --slate-soft: #242B30;
   }
   html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
   * { box-sizing: border-box; }
@@ -79,12 +91,13 @@
   section.day h2 { font-family: 'Fraunces', serif; font-weight: 500; font-size: 19px; margin: 0 0 12px; }
 
   .block {
-    background: var(--surface); border: 1px solid var(--line); border-left: 3px solid var(--line);
+    background: var(--block-bg, var(--surface)); border: 1px solid var(--line);
+    border-left: 3px solid var(--block-border, var(--line));
     border-radius: var(--radius); padding: 12px 13px; margin-bottom: 10px;
     transition: border-left-color .15s ease, background .15s ease;
   }
-  .block.done { border-left-color: var(--pine); background: var(--pine-soft); }
-  .block.missed { border-left-color: var(--rust); background: var(--rust-soft); }
+  .block.done { border-left-color: var(--pine) !important; background: var(--pine-soft) !important; }
+  .block.missed { border-left-color: var(--rust) !important; background: var(--rust-soft) !important; }
 
   .block-row { display: flex; align-items: flex-start; gap: 10px; }
   .check {
@@ -245,6 +258,25 @@
   }
   .day-check.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 
+  .color-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .color-swatch {
+    width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--line); cursor: pointer;
+    padding: 0; display: flex; align-items: center; justify-content: center; color: transparent;
+  }
+  .color-swatch.selected { border-color: var(--ink); color: var(--ink); }
+  .color-swatch svg { width: 14px; height: 14px; display: none; }
+  .color-swatch.selected svg { display: block; }
+
+  .sheet-items-list { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
+  .sheet-items-list .item-row { padding: 8px 10px; }
+  .sheet-items-list .item-row:first-child { border-top: none; }
+  .sheet-items-empty { padding: 10px; font-size: 13px; color: var(--ink-soft); text-align: center; }
+  .sheet-add-task-btn {
+    width: 100%; border: 1px dashed var(--line); background: transparent; color: var(--ink-soft);
+    border-radius: var(--radius); padding: 9px; font-family: inherit; font-size: 13.5px; cursor: pointer;
+  }
+  .sheet-add-task-btn:hover { border-color: var(--ink-soft); color: var(--ink); }
+
   .linkbtn { border: none; background: none; color: var(--pine); font-family: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; padding: 0; margin-left: 4px; }
   .hint { font-size: 12px; color: var(--ink-soft); line-height: 1.45; margin: 0 0 4px; }
   footer.note {
@@ -343,6 +375,17 @@
     </div>
     <div class="field"><label for="fTitle">Quoi</label><input type="text" id="fTitle" placeholder="Ex : Réviser électronique"></div>
     <div class="field"><label for="fNote">Note (avec qui, où…)</label><textarea id="fNote" placeholder="Ex : Focusmate avec Sara, café X"></textarea></div>
+    <div class="field" id="sheetItemsField" style="display:none">
+      <label>Tâches de ce bloc</label>
+      <div class="sheet-items-list" id="sheetItemsList"></div>
+      <div style="margin-top:8px">
+        <button type="button" class="sheet-add-task-btn" id="sheetAddTaskBtn">+ Ajouter des tâches</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Couleur</label>
+      <div class="color-row" id="colorRow"></div>
+    </div>
     <div class="sheet-actions">
       <button class="btn danger" id="deleteBtn" style="display:none">Suppr.</button>
       <button class="btn ghost" id="cancelBtn">Annuler</button>
@@ -353,18 +396,20 @@
 
 <div class="overlay" id="taskOverlay">
   <div class="sheet">
-    <h3>Placer des tâches</h3>
+    <h3 id="taskPickHeading">Placer des tâches</h3>
     <div class="field">
       <label>Tâches (tu peux en choisir plusieurs, même de matières différentes)</label>
       <div class="task-pick-list" id="taskPickList"></div>
     </div>
-    <div class="field">
-      <label>Jour(s)</label>
-      <div class="day-checks" id="dayChecks"></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label for="pStart">Début</label><input type="time" id="pStart" value="09:00"></div>
-      <div class="field"><label for="pEnd">Fin</label><input type="time" id="pEnd" value="10:00"></div>
+    <div id="pickScheduleFields">
+      <div class="field">
+        <label>Jour(s)</label>
+        <div class="day-checks" id="dayChecks"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label for="pStart">Début</label><input type="time" id="pStart" value="09:00"></div>
+        <div class="field"><label for="pEnd">Fin</label><input type="time" id="pEnd" value="10:00"></div>
+      </div>
     </div>
     <div class="sheet-actions">
       <button class="btn ghost" id="pickCancelBtn">Annuler</button>
@@ -423,23 +468,23 @@ const dbFs = getFirestore(fbApp);
 
   var DEFAULT_DAYS = {
     lun: [
-      {start:'08:30', end:'16:00', title:'Cours', note:'', status:'none', locked:true},
+      {start:'08:30', end:'16:00', title:'Cours', note:'', status:'none'},
       {start:'16:15', end:'17:00', title:'Bloc étude', note:'Court, avant de rentrer', status:'none'}
     ],
     mar: [
       {start:'09:00', end:'10:15', title:'Bloc étude (matin)', note:'Avant les cours', status:'none'},
-      {start:'10:45', end:'18:15', title:'Cours', note:'', status:'none', locked:true}
+      {start:'10:45', end:'18:15', title:'Cours', note:'', status:'none'}
     ],
     mer: [
-      {start:'08:30', end:'12:45', title:'Cours', note:'', status:'none', locked:true},
+      {start:'08:30', end:'12:45', title:'Cours', note:'', status:'none'},
       {start:'13:30', end:'15:00', title:'Bloc étude (solide)', note:'Après-midi libre — le meilleur créneau de la semaine', status:'none'}
     ],
     jeu: [
-      {start:'08:30', end:'16:00', title:'Cours', note:'', status:'none', locked:true},
+      {start:'08:30', end:'16:00', title:'Cours', note:'', status:'none'},
       {start:'16:15', end:'17:00', title:'Bloc étude', note:'Court, comme lundi', status:'none'}
     ],
     ven: [
-      {start:'08:30', end:'12:45', title:'Cours', note:'', status:'none', locked:true},
+      {start:'08:30', end:'12:45', title:'Cours', note:'', status:'none'},
       {start:'13:30', end:'14:15', title:'Bilan de la semaine', note:'Fait / pas fait, préparer le week-end', status:'none'}
     ],
     sam: [
@@ -450,6 +495,22 @@ const dbFs = getFirestore(fbApp);
       {start:'16:00', end:'17:30', title:'Bilan + préparation semaine', note:'Sac, premier rendez-vous Focusmate de lundi', status:'none'}
     ]
   };
+
+  var COLORS = [
+    { id: 'none',  label: 'Aucune',      bg: 'var(--surface)',    border: 'var(--line)' },
+    { id: 'pine',  label: 'Sauge',       bg: 'var(--pine-soft)',  border: 'var(--pine)' },
+    { id: 'rust',  label: 'Terracotta',  bg: 'var(--rust-soft)',  border: 'var(--rust)' },
+    { id: 'blue',  label: 'Bleu',        bg: 'var(--blue-soft)',  border: 'var(--blue)' },
+    { id: 'plum',  label: 'Prune',       bg: 'var(--plum-soft)',  border: 'var(--plum)' },
+    { id: 'ochre', label: 'Ocre',        bg: 'var(--ochre-soft)', border: 'var(--ochre)' },
+    { id: 'slate', label: 'Ardoise',     bg: 'var(--slate-soft)', border: 'var(--slate)' }
+  ];
+  function colorInfo(id){ return COLORS.find(function(c){return c.id===id;}) || COLORS[0]; }
+  function applyBlockColor(div, colorId){
+    var c = colorInfo(colorId);
+    div.style.setProperty('--block-bg', c.bg);
+    div.style.setProperty('--block-border', c.border);
+  }
 
   var KEY = 'semaine-planning-v2';
   var OLD_KEY = 'semaine-planning-v1';
@@ -546,7 +607,7 @@ const dbFs = getFirestore(fbApp);
       var btn = document.createElement('button');
       btn.className = d.key === activeDay ? 'active' : '';
       var blocks = state.days[d.key] || [];
-      var dotsHtml = blocks.filter(function(b){return !b.locked;}).map(function(b){
+      var dotsHtml = blocks.map(function(b){
         var st = blockEffectiveStatus(b);
         var cls = st === 'done' ? 'dot done' : (st === 'missed' ? 'dot missed' : 'dot');
         return '<span class="'+cls+'"></span>';
@@ -559,7 +620,7 @@ const dbFs = getFirestore(fbApp);
 
   function cycleStatus(day, id){
     var b = state.days[day].find(function(x){return x.id===id;});
-    if(!b || b.locked) return;
+    if(!b) return;
     b.status = b.status === 'none' ? 'done' : (b.status === 'done' ? 'missed' : 'none');
     save(); renderWeek(); renderSubjects(); renderDaily();
   }
@@ -577,10 +638,9 @@ const dbFs = getFirestore(fbApp);
     var b = state.days[day].find(function(x){return x.id===blockId;});
     if(!b || !b.items) return;
     b.items = b.items.filter(function(x){return x.id !== itemId;});
-    if(b.items.length === 0){
-      state.days[day] = state.days[day].filter(function(x){return x.id !== blockId;});
-    }
+    // the block itself stays, even empty — the person can re-fill it or delete it from "Modifier"
     save(); renderWeek(); renderSubjects(); renderDaily();
+    if(editing && editing.id === blockId) renderSheetItemsList();
   }
 
   function renderBlocks(){
@@ -601,39 +661,44 @@ const dbFs = getFirestore(fbApp);
       if(b.items){
         // multi-task block: one time slot, each task its own check
         div.className = 'block';
-        var itemsHtml = b.items.map(function(it){
-          var rowCls = 'item-row' + (it.status === 'done' ? ' done' : '') + (it.status === 'missed' ? ' missed' : '');
-          var tag = it.subjectLabel ? '<span class="item-tag">'+escapeHtml(it.subjectLabel)+'</span>' : '';
-          return '<div class="'+rowCls+'" data-item="'+it.id+'">' +
-            '<button class="item-check" aria-label="Marquer fait">' +
-              '<svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M4 12l5 5L20 6"/></svg>' +
-              '<svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
-            '</button>' +
-            '<div class="item-text">'+escapeHtml(it.text)+tag+'</div>' +
-            '<button class="item-rm" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
-          '</div>';
-        }).join('');
-        div.innerHTML =
+        applyBlockColor(div, b.color);
+        var timeRow =
           '<div class="block-time" style="margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">' +
             '<span>'+b.start+' – '+b.end+'</span>' +
-            '<button class="icon-btn editBtn" aria-label="Modifier l\'horaire"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
-          '</div>' +
-          itemsHtml;
-        div.querySelectorAll('.item-row').forEach(function(row){
-          var itemId = row.getAttribute('data-item');
-          row.querySelector('.item-check').addEventListener('click', function(){ cycleItemStatus(activeDay, b.id, itemId); });
-          row.querySelector('.item-rm').addEventListener('click', function(){ removeBlockItem(activeDay, b.id, itemId); });
-        });
+            '<button class="icon-btn editBtn" aria-label="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
+          '</div>';
+        if(b.items.length === 0){
+          div.innerHTML = timeRow + '<div class="empty" style="margin:0;">Emplacement vide — modifie pour y ajouter des tâches, ou pour le supprimer.</div>';
+        } else {
+          var itemsHtml = b.items.map(function(it){
+            var rowCls = 'item-row' + (it.status === 'done' ? ' done' : '') + (it.status === 'missed' ? ' missed' : '');
+            var tag = it.subjectLabel ? '<span class="item-tag">'+escapeHtml(it.subjectLabel)+'</span>' : '';
+            return '<div class="'+rowCls+'" data-item="'+it.id+'">' +
+              '<button class="item-check" aria-label="Marquer fait">' +
+                '<svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M4 12l5 5L20 6"/></svg>' +
+                '<svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
+              '</button>' +
+              '<div class="item-text">'+escapeHtml(it.text)+tag+'</div>' +
+              '<button class="item-rm" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
+            '</div>';
+          }).join('');
+          div.innerHTML = timeRow + itemsHtml;
+          div.querySelectorAll('.item-row').forEach(function(row){
+            var itemId = row.getAttribute('data-item');
+            row.querySelector('.item-check').addEventListener('click', function(){ cycleItemStatus(activeDay, b.id, itemId); });
+            row.querySelector('.item-rm').addEventListener('click', function(){ removeBlockItem(activeDay, b.id, itemId); });
+          });
+        }
         div.querySelector('.editBtn').addEventListener('click', function(){ openSheet(activeDay, b.id); });
         list.appendChild(div);
         return;
       }
 
       div.className = 'block' + (b.status === 'done' ? ' done' : '') + (b.status === 'missed' ? ' missed' : '');
-      var checkDisabled = b.locked;
+      applyBlockColor(div, b.color);
       div.innerHTML =
         '<div class="block-row">' +
-          '<button class="check" '+(checkDisabled ? 'style="opacity:.25;cursor:default"' : '')+' aria-label="Marquer fait">' +
+          '<button class="check" aria-label="Marquer fait">' +
             '<svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M4 12l5 5L20 6"/></svg>' +
             '<svg class="x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 6l12 12M18 6L6 18"/></svg>' +
           '</button>' +
@@ -642,14 +707,11 @@ const dbFs = getFirestore(fbApp);
             '<div class="block-title">'+escapeHtml(b.title)+'</div>' +
             (b.note ? '<div class="block-note">'+escapeHtml(b.note)+'</div>' : '') +
           '</div>' +
-          (b.locked ? '' :
           '<div class="block-actions">' +
             '<button class="icon-btn editBtn" aria-label="Modifier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>' +
-          '</div>') +
+          '</div>' +
         '</div>';
-      if(!checkDisabled){
-        div.querySelector('.check').addEventListener('click', function(){ cycleStatus(activeDay, b.id); });
-      }
+      div.querySelector('.check').addEventListener('click', function(){ cycleStatus(activeDay, b.id); });
       var editBtn = div.querySelector('.editBtn');
       if(editBtn) editBtn.addEventListener('click', function(){ openSheet(activeDay, b.id); });
       list.appendChild(div);
@@ -659,6 +721,53 @@ const dbFs = getFirestore(fbApp);
   function renderWeek(){ renderStrip(); renderBlocks(); }
 
   /* ---------- Block sheet ---------- */
+  var sheetColor = 'none';
+
+  function renderColorRow(){
+    var wrap = document.getElementById('colorRow');
+    wrap.innerHTML = '';
+    COLORS.forEach(function(c){
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-swatch' + (sheetColor === c.id ? ' selected' : '');
+      btn.style.background = c.bg;
+      btn.style.borderColor = sheetColor === c.id ? '' : c.border;
+      btn.title = c.label;
+      btn.setAttribute('aria-label', c.label);
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5"><path d="M4 12l5 5L20 6"/></svg>';
+      btn.addEventListener('click', function(){ sheetColor = c.id; renderColorRow(); });
+      wrap.appendChild(btn);
+    });
+  }
+
+  function renderSheetItemsList(){
+    var field = document.getElementById('sheetItemsField');
+    var wrap = document.getElementById('sheetItemsList');
+    if(!editing || !editing.id){ field.style.display = 'none'; return; }
+    var b = state.days[editing.day].find(function(x){return x.id===editing.id;});
+    if(!b || !b.items){ field.style.display = 'none'; return; }
+    field.style.display = '';
+    if(b.items.length === 0){
+      wrap.innerHTML = '<div class="sheet-items-empty">Aucune tâche pour l\'instant.</div>';
+      return;
+    }
+    wrap.innerHTML = b.items.map(function(it){
+      var rowCls = 'item-row' + (it.status === 'done' ? ' done' : '') + (it.status === 'missed' ? ' missed' : '');
+      var tag = it.subjectLabel ? '<span class="item-tag">'+escapeHtml(it.subjectLabel)+'</span>' : '';
+      return '<div class="'+rowCls+'" data-item="'+it.id+'">' +
+        '<span style="width:19px"></span>' +
+        '<div class="item-text">'+escapeHtml(it.text)+tag+'</div>' +
+        '<button type="button" class="item-rm" aria-label="Retirer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>' +
+      '</div>';
+    }).join('');
+    wrap.querySelectorAll('.item-rm').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        var itemId = btn.closest('.item-row').getAttribute('data-item');
+        removeBlockItem(editing.day, editing.id, itemId);
+      });
+    });
+  }
+
   function openSheet(day, id){
     editing = {day: day, id: id};
     var del = document.getElementById('deleteBtn');
@@ -672,18 +781,22 @@ const dbFs = getFirestore(fbApp);
       document.getElementById('fEnd').value = b.end;
       document.getElementById('fTitle').value = isItemBlock ? '' : b.title;
       document.getElementById('fNote').value = isItemBlock ? '' : (b.note || '');
+      sheetColor = b.color || 'none';
       del.style.display = 'block';
-      document.getElementById('sheetTitle').textContent = isItemBlock ? 'Modifier l\'horaire' : 'Modifier le bloc';
+      document.getElementById('sheetTitle').textContent = 'Modifier le bloc';
     } else {
       document.getElementById('fStart').value = '09:00';
       document.getElementById('fEnd').value = '10:00';
       document.getElementById('fTitle').value = '';
       document.getElementById('fNote').value = '';
+      sheetColor = 'none';
       del.style.display = 'none';
       document.getElementById('sheetTitle').textContent = 'Nouveau bloc';
     }
     titleField.style.display = isItemBlock ? 'none' : '';
     noteField.style.display = isItemBlock ? 'none' : '';
+    renderColorRow();
+    renderSheetItemsList();
     document.getElementById('overlay').classList.add('open');
   }
   function closeSheet(){ document.getElementById('overlay').classList.remove('open'); editing = null; }
@@ -695,18 +808,18 @@ const dbFs = getFirestore(fbApp);
     if(editing.id){
       var b = state.days[editing.day].find(function(x){return x.id===editing.id;});
       if(b.items){
-        b.start = start; b.end = end;
+        b.start = start; b.end = end; b.color = sheetColor;
       } else {
         var title = document.getElementById('fTitle').value.trim();
         var note = document.getElementById('fNote').value.trim();
         if(!title){ document.getElementById('fTitle').focus(); return; }
-        b.start = start; b.end = end; b.title = title; b.note = note;
+        b.start = start; b.end = end; b.title = title; b.note = note; b.color = sheetColor;
       }
     } else {
       var title2 = document.getElementById('fTitle').value.trim();
       var note2 = document.getElementById('fNote').value.trim();
       if(!title2){ document.getElementById('fTitle').focus(); return; }
-      state.days[editing.day].push({id: uid(), start: start, end: end, title: title2, note: note2, status: 'none'});
+      state.days[editing.day].push({id: uid(), start: start, end: end, title: title2, note: note2, status: 'none', color: sheetColor});
     }
     save(); closeSheet(); renderWeek();
   }
@@ -832,7 +945,7 @@ const dbFs = getFirestore(fbApp);
   }
 
   /* ---------- Task picker ---------- */
-  var pick = { taskIds: [], days: {} };
+  var pick = { taskIds: [], days: {}, target: null };
 
   /* All pickable groups: daily list first, then each subject */
   function pickGroups(){
@@ -852,11 +965,15 @@ const dbFs = getFirestore(fbApp);
     return null;
   }
 
-  function openTaskPicker(){
-    pick = { taskIds: [], days: {} };
+  /* target: null = create new block(s) across chosen days; {day, blockId} = add tasks into that existing block */
+  function openTaskPicker(target){
+    pick = { taskIds: [], days: {}, target: target || null };
     DAYS.forEach(function(d){ pick.days[d.key] = (d.key === activeDay); });
     document.getElementById('pStart').value = '09:00';
     document.getElementById('pEnd').value = '10:00';
+    document.getElementById('taskPickHeading').textContent = target ? 'Ajouter des tâches' : 'Placer des tâches';
+    document.getElementById('pickScheduleFields').style.display = target ? 'none' : '';
+    document.getElementById('pickSaveBtn').textContent = target ? 'Ajouter' : 'Placer';
     renderDayChecks();
     renderTaskPickList();
     updatePickSaveState();
@@ -885,7 +1002,14 @@ const dbFs = getFirestore(fbApp);
   function renderTaskPickList(){
     var wrap = document.getElementById('taskPickList');
     wrap.innerHTML = '';
-    var groups = pickGroups().filter(function(g){ return g.tasks.length > 0; });
+    var alreadyIn = [];
+    if(pick.target){
+      var tb = state.days[pick.target.day].find(function(x){return x.id === pick.target.blockId;});
+      if(tb && tb.items) alreadyIn = tb.items.map(function(it){ return it.taskId; });
+    }
+    var groups = pickGroups().map(function(g){
+      return { id: g.id, label: g.label, tasks: g.tasks.filter(function(t){ return alreadyIn.indexOf(t.id) === -1; }) };
+    }).filter(function(g){ return g.tasks.length > 0; });
     if(groups.length === 0){
       wrap.innerHTML = '<div class="task-pick-empty">Aucune tâche à placer pour l\'instant.</div>';
       return;
@@ -911,29 +1035,50 @@ const dbFs = getFirestore(fbApp);
   }
 
   function updatePickSaveState(){
-    var anyDay = Object.keys(pick.days).some(function(k){ return pick.days[k]; });
-    var ok = pick.taskIds.length > 0 && anyDay;
+    var ok = pick.taskIds.length > 0;
+    if(!pick.target){
+      var anyDay = Object.keys(pick.days).some(function(k){ return pick.days[k]; });
+      ok = ok && anyDay;
+    }
     document.getElementById('pickSaveBtn').disabled = !ok;
   }
 
   function placeTask(){
     if(pick.taskIds.length === 0) return;
-    var start = document.getElementById('pStart').value || '09:00';
-    var end = document.getElementById('pEnd').value || '10:00';
-    var chosenDays = Object.keys(pick.days).filter(function(k){ return pick.days[k]; });
-    if(chosenDays.length === 0) return;
-
     var picked = pick.taskIds.map(findPickedTask).filter(Boolean);
     if(picked.length === 0) return;
 
-    chosenDays.forEach(function(dayKey){
-      var items = picked.map(function(p){
+    function buildItems(){
+      return picked.map(function(p){
         return {
           id: uid(), taskId: p.task.id, subjectId: p.groupId, text: p.task.text,
           subjectLabel: p.groupId === '__daily__' ? 'Quotidien' : p.groupLabel, status: 'none'
         };
       });
-      state.days[dayKey].push({ id: uid(), start: start, end: end, items: items });
+    }
+
+    if(pick.target){
+      var b = state.days[pick.target.day].find(function(x){return x.id === pick.target.blockId;});
+      if(b){
+        if(!b.items) b.items = [];
+        b.items = b.items.concat(buildItems());
+      }
+      save();
+      closeTaskPicker();
+      renderSubjects();
+      renderDaily();
+      renderWeek();
+      if(editing && editing.id === pick.target.blockId) renderSheetItemsList();
+      return;
+    }
+
+    var start = document.getElementById('pStart').value || '09:00';
+    var end = document.getElementById('pEnd').value || '10:00';
+    var chosenDays = Object.keys(pick.days).filter(function(k){ return pick.days[k]; });
+    if(chosenDays.length === 0) return;
+
+    chosenDays.forEach(function(dayKey){
+      state.days[dayKey].push({ id: uid(), start: start, end: end, items: buildItems(), color: 'none' });
     });
     // the tasks stay in their lists
     save();
@@ -1051,7 +1196,11 @@ const dbFs = getFirestore(fbApp);
   document.getElementById('addDailyBtn').addEventListener('click', function(){ var el = document.getElementById('newDailyInput'); addDailyTask(el.value); el.value=''; });
   document.getElementById('newDailyInput').addEventListener('keydown', function(e){ if(e.key==='Enter'){ var el = document.getElementById('newDailyInput'); addDailyTask(el.value); el.value=''; } });
 
-  document.getElementById('addFromTaskBtn').addEventListener('click', openTaskPicker);
+  document.getElementById('addFromTaskBtn').addEventListener('click', function(){ openTaskPicker(); });
+  document.getElementById('sheetAddTaskBtn').addEventListener('click', function(){
+    if(!editing || !editing.id) return;
+    openTaskPicker({ day: editing.day, blockId: editing.id });
+  });
   document.getElementById('pickCancelBtn').addEventListener('click', closeTaskPicker);
   document.getElementById('pickSaveBtn').addEventListener('click', placeTask);
   document.getElementById('taskOverlay').addEventListener('click', function(e){ if(e.target === this) closeTaskPicker(); });
